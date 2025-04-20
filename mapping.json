@@ -1,0 +1,29 @@
+{
+  "SheetName": "Sheet1",
+  "ColumnMappings": {
+    "Column1": "A",
+    "Column2": "C",
+    "Column3": "B"
+  },
+  "CellMappings": [
+    {
+      "CsvColumn": "Column1",
+      "CsvRow": 2,
+      "ExcelColumn": "D",
+      "ExcelRow": 10
+    },
+    {
+      "CsvColumn": "Column2",
+      "CsvRow": 3,
+      "ExcelColumn": "A",
+      "OffsetFromEnd": 2
+    },
+    {
+      "CsvColumn": "Column4",
+      "CsvRow": 1,
+      "ExcelColumn": "A",
+      "OffsetFromEnd": 3
+    }
+  ],
+  "StartRow": 2
+}
