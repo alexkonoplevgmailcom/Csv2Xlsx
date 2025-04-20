@@ -8,3 +8,4 @@
 2025-04-20 13:37:43.798 +03:00 [INF] Excel file generated successfully: C:\Users\97254\source\repos\Csv2Xlsx\ProcessedFiles\CdvData1 copy 195_output.xlsx
 2025-04-20 13:37:43.798 +03:00 [INF] File processing completed: C:\Users\97254\source\repos\Csv2Xlsx\CsvFiles\CdvData1 copy 195.csv
 2025-04-20 13:37:43.798 +03:00 [INF] Successfully processed file: CdvData1 copy 195.csv
+2025-04-20 13:40:11.196 +03:00 [INF] Stopping Csv2Xlsx service
