@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Csv2Xlsx")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e059f6ceeb88811177c0e67461990b3ba8f6e88a")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+027669923ed705512bfbd32abf701d2432e89629")]
 [assembly: System.Reflection.AssemblyProductAttribute("Csv2Xlsx")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Csv2Xlsx")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
