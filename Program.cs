@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 using ClosedXML.Excel;
 using Microsoft.Extensions.Configuration;
+using System.ServiceProcess;
+using Serilog;
 
 namespace Csv2Xlsx
 {
@@ -13,42 +15,91 @@ namespace Csv2Xlsx
     {
         static void Main(string[] args)
         {
-            // Register encoding provider for non-Unicode encodings (like windows-1255)
-            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+            // Check if the application should run as a service
+            if (args.Length > 0 && args[0].ToLower() == "--service")
+            {
+                // Run as a Windows Service
+                ServiceBase[] ServicesToRun = new ServiceBase[]
+                {
+                    new Csv2XlsxService()
+                };
+                ServiceBase.Run(ServicesToRun);
+            }
+            else
+            {
+                // Run as a console application
+                
+                // Register encoding provider for non-Unicode encodings (like windows-1255)
+                System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
 
-            // Load configuration from appsettings.json
-            var configuration = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-                .Build();
+                // Load configuration from appsettings.json
+                var configuration = new ConfigurationBuilder()
+                    .SetBasePath(Directory.GetCurrentDirectory())
+                    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                    .Build();
 
-            // Get file paths from configuration and convert to absolute paths
-            string basePath = AppDomain.CurrentDomain.BaseDirectory;
-            string templatePath = Path.GetFullPath(Path.Combine(basePath, configuration["FilePaths:TemplatePath"]));
-            string csvFolderPath = Path.GetFullPath(Path.Combine(basePath, configuration["FilePaths:CsvFolderPath"]));
-            string mappingPath = Path.GetFullPath(Path.Combine(basePath, configuration["FilePaths:MappingPath"]));
-            string outputFolderPath = Path.GetFullPath(Path.Combine(basePath, configuration["FilePaths:OutputFolderPath"]));
+                // Setup Serilog for console mode
+                string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs", "csv2xlsx-.log");
+                
+                // Ensure logs directory exists
+                Directory.CreateDirectory(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs"));
+                
+                // Configure Serilog with rolling file and console output
+                Log.Logger = new LoggerConfiguration()
+                    .ReadFrom.Configuration(configuration)
+                    .MinimumLevel.Debug()
+                    .WriteTo.Console()
+                    .WriteTo.File(
+                        path: logPath,
+                        rollingInterval: RollingInterval.Day,
+                        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
+                        fileSizeLimitBytes: 10485760, // 10MB
+                        retainedFileCountLimit: 31,    // Keep a month of logs
+                        rollOnFileSizeLimit: true)
+                    .CreateLogger();
 
-            Console.WriteLine($"Using CSV folder: {csvFolderPath}");
-            Console.WriteLine($"Using output folder: {outputFolderPath}");
+                try
+                {
+                    // Get file paths from configuration and convert to absolute paths
+                    string basePath = AppDomain.CurrentDomain.BaseDirectory;
+                    string templatePath = Path.GetFullPath(Path.Combine(basePath, configuration["FilePaths:TemplatePath"] ?? "ExcelTemplate.xlsx"));
+                    string csvFolderPath = Path.GetFullPath(Path.Combine(basePath, configuration["FilePaths:CsvFolderPath"] ?? "InputCsv"));
+                    string mappingPath = Path.GetFullPath(Path.Combine(basePath, configuration["FilePaths:MappingPath"] ?? "mapping.json"));
+                    string outputFolderPath = Path.GetFullPath(Path.Combine(basePath, configuration["FilePaths:OutputFolderPath"] ?? "OutputExcel"));
 
-            // Ensure the input and output folders exist
-            EnsureFolderExists(csvFolderPath);
-            EnsureFolderExists(outputFolderPath);
+                    Log.Information("Using CSV folder: {CsvFolder}", csvFolderPath);
+                    Log.Information("Using output folder: {OutputFolder}", outputFolderPath);
+                    Console.WriteLine($"Using CSV folder: {csvFolderPath}");
+                    Console.WriteLine($"Using output folder: {outputFolderPath}");
 
-            // Start monitoring the folder for new CSV files
-            MonitorFolder(csvFolderPath, templatePath, mappingPath, outputFolderPath, configuration);
+                    // Ensure the input and output folders exist
+                    EnsureFolderExists(csvFolderPath);
+                    EnsureFolderExists(outputFolderPath);
 
-            Console.WriteLine("Monitoring folder for new CSV files. Press Enter to exit...");
-            Console.ReadLine();
+                    // Start monitoring the folder for new CSV files
+                    MonitorFolder(csvFolderPath, templatePath, mappingPath, outputFolderPath, configuration);
+
+                    Console.WriteLine("Monitoring folder for new CSV files. Press Enter to exit...");
+                    Console.ReadLine();
+                    
+                    // Close and flush log when application ends
+                    Log.CloseAndFlush();
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Error in main program");
+                    Console.WriteLine($"Error: {ex.Message}");
+                }
+            }
         }
 
         // Ensures that the specified folder exists, creating it if necessary
-        static void EnsureFolderExists(string folderPath)
+        public static void EnsureFolderExists(string folderPath)
         {
             if (!Directory.Exists(folderPath))
             {
                 Directory.CreateDirectory(folderPath);
+                Log.Information("Created missing folder: {FolderPath}", folderPath);
                 Console.WriteLine($"Created missing folder: {folderPath}");
             }
         }
@@ -68,7 +119,9 @@ namespace Csv2Xlsx
             // Event triggered when a new file is created in the folder
             watcher.Created += (sender, e) =>
             {
+                Log.Information("New file detected: {FileName}", e.Name);
                 Console.WriteLine($"New file detected: {e.Name}");
+                
                 // Process the file asynchronously to allow multiple files to be handled simultaneously
                 Task.Run(() => 
                 {
@@ -80,11 +133,12 @@ namespace Csv2Xlsx
 
             // Start monitoring the folder
             watcher.EnableRaisingEvents = true;
+            Log.Information("Watching folder: {FolderPath} for new CSV files", folderPath);
             Console.WriteLine($"Watching folder: {folderPath} for new CSV files");
         }
 
         // Process existing CSV files in the folder
-        static void ProcessExistingFiles(string folderPath, string templatePath, string mappingPath, string outputFolderPath, IConfiguration configuration)
+        public static void ProcessExistingFiles(string folderPath, string templatePath, string mappingPath, string outputFolderPath, IConfiguration configuration)
         {
             try
             {
@@ -93,12 +147,14 @@ namespace Csv2Xlsx
                 
                 if (csvFiles.Length > 0)
                 {
+                    Log.Information("Found {FileCount} existing CSV files to process", csvFiles.Length);
                     Console.WriteLine($"Found {csvFiles.Length} existing CSV files to process");
                     
                     // Process each file
                     foreach (string csvFile in csvFiles)
                     {
                         string fileName = Path.GetFileName(csvFile);
+                        Log.Information("Processing existing file: {FileName}", fileName);
                         Console.WriteLine($"Processing existing file: {fileName}");
                         
                         // Check if the file has already been processed
@@ -111,26 +167,30 @@ namespace Csv2Xlsx
                         }
                         else
                         {
+                            Log.Information("Skipping {FileName} - already processed", fileName);
                             Console.WriteLine($"Skipping {fileName} - already processed");
                         }
                     }
                 }
                 else
                 {
+                    Log.Information("No existing CSV files found to process");
                     Console.WriteLine("No existing CSV files found to process");
                 }
             }
             catch (Exception ex)
             {
+                Log.Error(ex, "Error processing existing files");
                 Console.WriteLine($"Error processing existing files: {ex.Message}");
             }
         }
 
         // Processes a single CSV file and generates an Excel file based on the template and mapping
-        static void ProcessCsvFile(string csvPath, string templatePath, string mappingPath, string outputFolderPath, IConfiguration configuration)
+        public static void ProcessCsvFile(string csvPath, string templatePath, string mappingPath, string outputFolderPath, IConfiguration configuration)
         {
             try
             {
+                Log.Information("Processing file: {FilePath}", csvPath);
                 Console.WriteLine($"Processing file: {csvPath}");
 
                 // Load the mapping configuration
@@ -147,12 +207,15 @@ namespace Csv2Xlsx
                 // Generate the Excel file based on the template and mapping
                 GenerateExcel(templatePath, csvData, mapping, outputPath);
 
+                Log.Information("Excel file generated successfully: {OutputPath}", outputPath);
+                Log.Information("File processing completed: {FilePath}", csvPath);
                 Console.WriteLine($"Excel file generated successfully: {outputPath}");
                 Console.WriteLine($"File processing completed: {csvPath}");
             }
             catch (Exception ex)
             {
                 // Log any errors that occur during processing
+                Log.Error(ex, "Error processing file {FilePath}", csvPath);
                 Console.WriteLine($"Error processing file {csvPath}: {ex.Message}");
             }
         }
@@ -161,11 +224,17 @@ namespace Csv2Xlsx
         static Mapping LoadMapping(string mappingPath)
         {
             string json = File.ReadAllText(mappingPath);
-            return JsonConvert.DeserializeObject<Mapping>(json);
+            var mapping = JsonConvert.DeserializeObject<Mapping>(json);
+            if (mapping == null)
+            {
+                Log.Error("Failed to deserialize mapping file: {FilePath}", mappingPath);
+                throw new InvalidOperationException($"Failed to deserialize mapping file: {mappingPath}");
+            }
+            return mapping;
         }
 
         // Reads the CSV file and converts it into a list of dictionaries
-        static List<Dictionary<string, string>> ReadCsv(string csvPath, string encodingName)
+        static List<Dictionary<string, string>> ReadCsv(string csvPath, string? encodingName)
         {
             var csvData = new List<Dictionary<string, string>>();
             
@@ -177,6 +246,7 @@ namespace Csv2Xlsx
             }
             catch (ArgumentException)
             {
+                Log.Warning("Encoding '{Encoding}' not found. Using UTF-8 instead", encodingName);
                 Console.WriteLine($"Warning: Encoding '{encodingName}' not found. Using UTF-8 instead.");
                 encoding = System.Text.Encoding.UTF8;
             }

@@ -1,0 +1,10 @@
+2025-04-20 13:34:29.119 +03:00 [INF] Service starting up
+2025-04-20 13:34:29.167 +03:00 [INF] Starting Csv2Xlsx service with CSV folder: C:\Users\97254\source\repos\Csv2Xlsx\CsvFiles
+2025-04-20 13:34:29.168 +03:00 [INF] Output folder: C:\Users\97254\source\repos\Csv2Xlsx\ProcessedFiles
+2025-04-20 13:34:29.169 +03:00 [INF] No existing CSV files found to process
+2025-04-20 13:34:29.175 +03:00 [INF] Watching folder: C:\Users\97254\source\repos\Csv2Xlsx\CsvFiles for new CSV files
+2025-04-20 13:37:37.768 +03:00 [INF] New file detected: CdvData1 copy 195.csv
+2025-04-20 13:37:38.276 +03:00 [INF] Processing file: C:\Users\97254\source\repos\Csv2Xlsx\CsvFiles\CdvData1 copy 195.csv
+2025-04-20 13:37:43.798 +03:00 [INF] Excel file generated successfully: C:\Users\97254\source\repos\Csv2Xlsx\ProcessedFiles\CdvData1 copy 195_output.xlsx
+2025-04-20 13:37:43.798 +03:00 [INF] File processing completed: C:\Users\97254\source\repos\Csv2Xlsx\CsvFiles\CdvData1 copy 195.csv
+2025-04-20 13:37:43.798 +03:00 [INF] Successfully processed file: CdvData1 copy 195.csv
